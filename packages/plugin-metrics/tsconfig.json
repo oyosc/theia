@@ -1,0 +1,28 @@
+{
+  "extends": "../../configs/base.tsconfig",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "lib"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../core"
+    },
+    {
+      "path": "../languages"
+    },
+    {
+      "path": "../metrics"
+    },
+    {
+      "path": "../plugin"
+    },
+    {
+      "path": "../plugin-ext"
+    }
+  ]
+}
