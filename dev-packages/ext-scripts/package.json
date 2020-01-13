@@ -9,11 +9,12 @@
     "run": "theia-run.js"
   },
   "theia-monorepo-scripts": {
-    "ext:clean": "theiaext compile:clean && theiaext test:clean",
+    "ext:clean": "theiaext compile:clean && theiaext lint:clean && theiaext test:clean",
     "ext:build": "concurrently -n compile,lint -c blue,green \"theiaext compile\" \"theiaext lint\"",
     "ext:compile": "tsc -b compile.tsconfig.json --verbose",
     "ext:compile:clean": "rimraf lib *.tsbuildinfo",
-    "ext:lint": "tslint -c ../../configs/build.tslint.json --project compile.tsconfig.json",
+    "ext:lint": "eslint --cache=true --no-error-on-unmatched-pattern=true \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\"",
+    "ext:lint:clean": "rimraf .eslintcache",
     "ext:watch": "tsc -b compile.tsconfig.json -w",
     "ext:test": "nyc mocha --opts ../../configs/mocha.opts \"./lib/**/*.*spec.js\"",
     "ext:test:watch": "mocha -w --opts ../../configs/mocha.opts \"./lib/**/*.*spec.js\"",

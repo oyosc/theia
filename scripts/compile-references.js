@@ -15,13 +15,14 @@
  ********************************************************************************/
 
 /**
- * This script generates tsconfig references between our workspaces.
+ * This script generates tsconfig references between our workspaces, it also
+ * configures our .eslintrc file to use such references.
  *
  * `tsc` build mode relies on these references to build out of date dependencies
  * only when required, but it cannot infer workspaces by itself, it has to be
- * explicitly defined.
+ * explicitly defined [1].
  *
- * See: https://www.typescriptlang.org/docs/handbook/project-references.html
+ * [1]: https://www.typescriptlang.org/docs/handbook/project-references.html
  */
 
 // @ts-check
@@ -32,25 +33,60 @@ const fs = require('fs');
 
 const CWD = path.join(__dirname, '..');
 
-const YARN_WORKSPACES = JSON.parse(cp.execSync('yarn --silent workspaces info --json').toString());
+const FORCE_REWRITE = Boolean(process.env['THEIA_REPO_FORCE_REWRITE']);
 
-for (const packageName of Object.keys(YARN_WORKSPACES)) {
-    const workspacePackage = YARN_WORKSPACES[packageName];
-    compileReferences(workspacePackage);
-}
-compileReferences({
-    location: '.', // root package of the monorepo
+/** @type {{ [packageName: string]: YarnWorkspace }} */
+const YARN_WORKSPACES = JSON.parse(cp.execSync('yarn --silent workspaces info').toString());
+
+/** @type {YarnWorkspace} */
+const THEIA_MONOREPO = {
     workspaceDependencies: Object.keys(YARN_WORKSPACES),
-});
+    location: '.',
+};
 
-function compileReferences(currentPackage) {
-    const tsconfigPath = path.join(CWD, currentPackage.location, 'tsconfig.json');
-    // If no tsconfig, no need to edit references...
+{
+    for (const packageName of Object.keys(YARN_WORKSPACES)) {
+        const workspacePackage = YARN_WORKSPACES[packageName];
+        const tsconfigPath = path.join(CWD, workspacePackage.location, 'tsconfig.json');
+        const references = getTypescriptReferences(workspacePackage);
+        configureTypeScriptConfig(tsconfigPath, references);
+    }
+    const tsconfigPath = path.join(CWD, 'tsconfig.json');
+    const references = getTypescriptReferences(THEIA_MONOREPO);
+    configureTypeScriptConfig(tsconfigPath, references);
+}
+
+/**
+ * @param {YarnWorkspace} requestedPackage
+ * @returns {string[]} references for `requestedPackage`
+ */
+function getTypescriptReferences(requestedPackage) {
+    const references = []
+    const dependencies = requestedPackage.workspaceDependencies || []
+    for (const dependency of dependencies) {
+        if (dependency in YARN_WORKSPACES) {
+            const depWorkspace = YARN_WORKSPACES[dependency];
+            const depConfig = path.join(depWorkspace.location, 'tsconfig.json');
+            if (!fs.existsSync(depConfig)) {
+                continue;
+            }
+            const relativePath = path.relative(requestedPackage.location, requestedPackage.location);
+            references.push(relativePath);
+        }
+    }
+    return references;
+}
+
+/**
+ * @param {string} tsconfigPath
+ * @param {string[]} references
+ */
+function configureTypeScriptConfig(tsconfigPath, references) {
     if (!fs.existsSync(tsconfigPath)) {
         return;
     }
     let needRewrite = false;
-    const tsconfigJson = require(tsconfigPath);
+    const tsconfigJson = readJsonFile(tsconfigPath);
     if (!tsconfigJson.compilerOptions) {
         tsconfigJson.compilerOptions = {
             composite: true,
@@ -64,25 +100,16 @@ function compileReferences(currentPackage) {
         };
         needRewrite = true;
     }
-    const dependencies = currentPackage.workspaceDependencies || [];
-    const references = new Set((tsconfigJson['references'] || []).map(reference => reference.path));
-    for (const dependency of dependencies) {
-        if (dependency in YARN_WORKSPACES) {
-            const depWorkspace = YARN_WORKSPACES[dependency];
-            const depConfig = path.join(depWorkspace.location, 'tsconfig.json');
-            if (!fs.existsSync(depConfig)) {
-                continue;
-            }
-            const relativePath = path.relative(currentPackage.location, depWorkspace.location);
-            if (!references.has(relativePath)) {
-                needRewrite = true;
-            }
-            references.add(relativePath);
+    const currentReferences = new Set((tsconfigJson['references'] || []).map(reference => reference.path));
+    for (const reference of references) {
+        if (!currentReferences.has(reference)) {
+            currentReferences.add(reference);
+            needRewrite = true;
         }
     }
-    if (needRewrite) {
+    if (FORCE_REWRITE || needRewrite) {
         tsconfigJson.references = []
-        for (const reference of references.keys()) {
+        for (const reference of currentReferences) {
             tsconfigJson.references.push({
                 path: reference,
             });
@@ -91,3 +118,17 @@ function compileReferences(currentPackage) {
         fs.writeFileSync(tsconfigPath, content + '\n');
     }
 }
+
+/**
+ * @param {string} path
+ * @returns {any}
+ */
+function readJsonFile(path) {
+    return JSON.parse(fs.readFileSync(path).toString());
+}
+
+/**
+ * @typedef YarnWorkspace
+ * @property {string} location
+ * @property {string[]} workspaceDependencies
+ */
