@@ -6,6 +6,11 @@
 
 Breaking changes:
 
+- Updated `example-browser` and `example-electron` applications to remove extensions which are instead contributed by VS Code builtin extensions [#6883](https://github.com/eclipse-theia/theia/pull/6883)
+  - In order to fetch plugins remotely, the `@theia/cli` script `download:plugins` can be used:
+    - In your `package.json` you can define:
+      - `theiaPluginDir`: to specify the folder in which to download plugins, in respect to your `package.json`
+      - `theiaPlugins`: to specify the list of plugins in the form of `"id": "url"`
 - [core] removed `virtual-renderer`. `react-renderer` should be used instead [#6885](https://github.com/eclipse-theia/theia/pull/6885)
 - [core] removed `virtual-widget`. `react-widget` should be used instead [#6885](https://github.com/eclipse-theia/theia/pull/6885)
 - [task] renamed method `getStrigifiedTaskSchema()` has been renamed to `getStringifiedTaskSchema()` [#6780](https://github.com/eclipse-theia/theia/pull/6780)
