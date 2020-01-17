@@ -52,7 +52,7 @@ export class FileNavigatorWidget extends FileTreeWidget {
     @inject(NavigatorContextKeyService)
     protected readonly contextKeyService: NavigatorContextKeyService;
 
-    constructor(
+    constructor (
         @inject(TreeProps) readonly props: TreeProps,
         @inject(FileNavigatorModel) readonly model: FileNavigatorModel,
         @inject(ContextMenuRenderer) contextMenuRenderer: ContextMenuRenderer,
@@ -83,6 +83,9 @@ export class FileNavigatorWidget extends FileTreeWidget {
                     }
                 }
 
+            }),
+            this.workspaceService.onDidCreateFileFolder(uri => {
+                console.log(`file/folder has been created: ${uri}`);
             })
         ]);
     }
